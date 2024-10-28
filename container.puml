@@ -1,0 +1,44 @@
+@startuml
+!include <C4/C4_Container.puml>
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+title Диаграмма контейнеров видеохостинга
+
+Person(user, "Пользователь")
+Person(admin, "Администратор")
+
+System_Boundary(videoHosting, "Видеохостинг") {
+  Container(webServer, "Web Server", "nginx, Vue.js", "Веб-сервер, отвечающий за интерфейс и статику")
+  Container(apiGateway, "API Gateway", "Java, Spring Framework", "API Gateway проксирующий запросы к API приложениям")
+
+  Container(socialService, "SocialService", "Java, Spring Framework", "Сервис отвечающий за социальную часть (комментарии, лайки)")
+  Container(authService, "AuthService", "Java, Spring Framework", "Сервис авторизации и аутентификации")
+  Container(playbackService, "VideoService", "Java, Spring Framework", "Сервис по работе с видео")
+  Container(commentsModerationService, "CommentsModerationService", "Python, Tensorflow", "Сервис модерации комментариев, интегрирующийся с моделью ML")
+  Container(cdn, "CDN", "Yandex Cloud CDN", "Content Delivery Network")
+
+  ContainerDb(videoMetaDb, "RDBMS", "PostgreSQL 15", "Хранилище метаданных для видео")
+  ContainerDb(authDb, "RDBMS", "PostgreSQL 15", "Хранилище данных для авторизации")
+  ContainerDb(socialDb, "RDBMS", "PostgreSQL 15", "Хранилище социальной информации")
+  ContainerDb(s3, "S3", "Yandex Object Storage", "Видеохранилище")
+}
+
+Rel(user, webServer, "Запросы на контент")
+Rel(admin, webServer, "Модерация комментариев")
+Rel(webServer, apiGateway, "REST API", "HTTP/2")
+
+Rel(apiGateway, socialService, "REST API", "HTTP/2")
+Rel(apiGateway, authService, "REST API", "HTTP/2")
+Rel(apiGateway, playbackService, "REST API", "HTTP/2")
+
+Rel(socialService, commentsModerationService, "REST API", "HTTP/2")
+
+Rel(authService, authDb, "JDBC", "TCP/IP")
+Rel(playbackService, videoMetaDb, "JDBC", "TCP/IP")
+Rel(playbackService, s3, "HTTP/2", "TCP/IP")
+Rel(socialService, socialDb, "JDBC", "TCP/IP")
+
+Rel(webServer, cdn, "QUIC", "UDP")
+Rel(cdn, s3, "QUIC", "UDP")
+
+@enduml
