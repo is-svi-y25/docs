@@ -1,0 +1,89 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Deployment.puml
+!include <C4/C4_Deployment.puml>
+!include <C4/C4_Container.puml>
+
+title Диаграмма развёртывания видеохостинга
+
+Deployment_Node(desktop, "Desktop", "OS: Windows/MacOS/Linux") {
+    Deployment_Node(browser, "Web Browser", "Chrome/Firefox/Safari/Edge") {
+        Container(frontend, "Фронтенд страницы", "Vue.js", "Клиентский интерфейс")
+    }
+}
+
+Deployment_Node(aws, "Yandex Cloud", "deployment node") {
+    Deployment_Node(awsRegion, "ru-central1-a", "deployment node") {
+        Deployment_Node(webServer, "Web Server", "OS: Ubuntu 24.04") {
+            Container(nginx, "Веб сервер", "nginx", "Веб сервер для фронтенда и статики")
+        }
+
+        Deployment_Node(gatewayApiServer, "Application Server", "OS: Ubuntu 24.04") {
+            Container(gatewayApi, "Gateway API", "Java, Spring Framework", "Перенаправляет запросы к API приложений")
+        }
+
+        Deployment_Node(socialServiceServer, "Application Server", "OS: Ubuntu 24.04") {
+            Container(socialService, "SocialService", "Java, Spring Framework", "Работает с социальной частью (комментарии, лайки)")
+        }
+
+        Deployment_Node(authServiceServer, "Application Server", "OS: Ubuntu 24.04") {
+            Container(authService, "AuthService", "Java, Spring Framework", "Отвечает за авторизацию и аутентификацию")
+        }
+
+        Deployment_Node(videoServiceServer, "Application Server", "OS: Ubuntu 24.04") {
+            Container(videoService, "VideoService", "Java, Spring Framework", "Работает с потоковым видео")
+        }
+
+        Deployment_Node(commentsModerationServiceServer, "Application Server", "OS: Ubuntu 24.04") {
+            Container(commentsModerationService, "CommentsModerationService", "Python, Tensorflow", "ML-модерация комментариев")
+        }
+
+        Deployment_Node(authServiceDatabaseServer, "Database Server", "OS: Ubuntu 24.04") {
+            Deployment_Node(authServiceDatabaseContainer, "PostgreSQL", "PostgreSQL 15") {
+                ContainerDb(authServiceDatabase, "Database", "Relational Database",  "Хранит информацию о авторизации и юзерах")
+            }
+        }
+
+        Deployment_Node(videoServiceDatabaseServer, "Database Server", "OS: Ubuntu 24.04") {
+            Deployment_Node(videoServiceDatabaseContainer, "PostgreSQL", "PostgreSQL 15") {
+                ContainerDb(videoServiceDatabase, "Database", "Relational Database",  "Хранит мета-информацию о видео")
+            }
+        }
+
+        Deployment_Node(socialServiceDatabaseServer, "Database Server", "OS: Ubuntu 24.04") {
+            Deployment_Node(socialServiceDatabaseContainer, "PostgreSQL", "PostgreSQL 15") {
+                ContainerDb(socialServiceDatabase, "Database", "Relational Database",  "Хранит информацию о социальной части (комментарии, лайки)")
+            }
+        }
+
+        Deployment_Node(s3VideoServer, "S3 Server", "OS: Ubuntu 24.04") {
+            Deployment_Node(s3VideoContainer, "S3", "Yandex Object Storage") {
+                ContainerDb(s3Video, "Database", "S3 Database",  "Хранит файлы видео")
+            }
+        }
+
+        Deployment_Node(cdnServer, "CDN Server", "OS: Ubuntu 24.04") {
+            Deployment_Node(cdnContainer, "CDN", "Yandex Cloud CDN") {
+                ContainerDb(cdn, "CDN", "CDN",  "Кеширует видео для быстрой доставки")
+            }
+        }
+    }
+}
+
+Rel(frontend, nginx, "REST API", "HTTP/2")
+Rel(nginx, gatewayApi, "REST API", "HTTP/2")
+
+Rel(gatewayApi, authService, "REST API", "HTTP/2")
+Rel(gatewayApi, videoService, "REST API", "HTTP/2")
+Rel(gatewayApi, socialService, "REST API", "HTTP/2")
+Rel(socialService, commentsModerationService, "REST API", "HTTP/2")
+
+Rel(authService, authServiceDatabase, "JDBC", "TCP/IP")
+Rel(videoService, videoServiceDatabase, "JDBC", "TCP/IP")
+Rel(videoService, s3Video, "REST API", "HTTP/2")
+Rel(socialService, socialServiceDatabase, "JDBC", "TCP/IP")
+
+Rel(frontend, cdn, "QUIC", "UDP")
+Rel(cdn, s3Video, "QUIC", "UDP")
+
+
+@enduml
