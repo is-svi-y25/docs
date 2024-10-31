@@ -38,7 +38,7 @@ Rel(playbackService, videoMetaDb, "JDBC", "TCP/IP")
 Rel(playbackService, s3, "HTTP/2", "TCP/IP")
 Rel(socialService, socialDb, "JDBC", "TCP/IP")
 
-Rel(webServer, cdn, "QUIC", "UDP")
-Rel(cdn, s3, "QUIC", "UDP")
+Rel(webServer, cdn, "HLS", "HTTP")
+Rel(cdn, s3, "HLS", "HTTP")
 
 @enduml

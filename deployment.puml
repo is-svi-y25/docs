@@ -82,8 +82,7 @@ Rel(videoService, videoServiceDatabase, "JDBC", "TCP/IP")
 Rel(videoService, s3Video, "REST API", "HTTP/2")
 Rel(socialService, socialServiceDatabase, "JDBC", "TCP/IP")
 
-Rel(frontend, cdn, "QUIC", "UDP")
-Rel(cdn, s3Video, "QUIC", "UDP")
-
+Rel(frontend, cdn, "HLS", "HTTP")
+Rel(cdn, s3Video, "HLS", "HTTP")
 
 @enduml
