@@ -1,0 +1,608 @@
+openapi: 3.0.3
+info:
+  title: Видеоплатформа API
+  description: API для сервиса видеоплатформы с регистрацией, аутентификацией, загрузкой и управлением видео, социальными функциями и видеоплеером.
+  version: 1.0.0
+servers:
+  - url: TBD
+    description: Основной сервер API
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    UserRegistration:
+      type: object
+      required:
+        - email
+        - password
+        - nickname
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        password:
+          type: string
+          format: password
+          minLength: 6
+          example: strongPassword123
+        nickname:
+          type: string
+          minLength: 3
+          example: UserNickname
+
+    UserLogin:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        password:
+          type: string
+          format: password
+          example: strongPassword123
+
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        nickname:
+          type: string
+          example: UserNickname
+        avatarUrl:
+          type: string
+          format: uri
+          example: https://cdn.videoplatform.com/avatars/user123.png
+
+    UpdateUserProfile:
+      type: object
+      properties:
+        nickname:
+          type: string
+          minLength: 3
+          example: NewNickname
+        avatar:
+          type: string
+          format: binary
+        password:
+          type: string
+          format: password
+          minLength: 6
+
+    VideoUpload:
+      type: object
+      required:
+        - title
+        - description
+        - file
+      properties:
+        title:
+          type: string
+          example: Заголовок видео
+        description:
+          type: string
+          example: Описание видео
+        file:
+          type: string
+          format: binary
+
+    Video:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174001"
+        title:
+          type: string
+          example: Заголовок видео
+        description:
+          type: string
+          example: Описание видео
+        url:
+          type: string
+          format: uri
+          example: https://cdn.videoplatform.com/videos/video123.mp4
+        thumbnailUrl:
+          type: string
+          format: uri
+          example: https://cdn.videoplatform.com/thumbnails/video123.png
+        uploadedBy:
+          $ref: '#/components/schemas/UserProfile'
+        uploadDate:
+          type: string
+          format: date-time
+          example: "2024-04-27T10:00:00Z"
+        views:
+          type: integer
+          example: 1024
+        likes:
+          type: integer
+          example: 100
+        dislikes:
+          type: integer
+          example: 5
+
+    VideoSearchResponse:
+      type: object
+      properties:
+        total:
+          type: integer
+          example: 50
+        videos:
+          type: array
+          items:
+            $ref: '#/components/schemas/Video'
+
+    Comment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174002"
+        videoId:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174001"
+        author:
+          $ref: '#/components/schemas/UserProfile'
+        content:
+          type: string
+          example: Отличное видео!
+        createdAt:
+          type: string
+          format: date-time
+          example: "2024-04-27T10:05:00Z"
+
+    CreateComment:
+      type: object
+      required:
+        - content
+      properties:
+        content:
+          type: string
+          minLength: 1
+          example: Отличное видео!
+
+    LikeDislike:
+      type: object
+      required:
+        - action
+      properties:
+        action:
+          type: string
+          enum: [like, dislike]
+          example: like
+
+  parameters:
+    VideoId:
+      name: videoId
+      in: path
+      required: true
+      description: Идентификатор видео
+      schema:
+        type: string
+        format: uuid
+
+    CommentId:
+      name: commentId
+      in: path
+      required: true
+      description: Идентификатор комментария
+      schema:
+        type: string
+        format: uuid
+
+security:
+  - BearerAuth: []
+
+paths:
+  /auth/register:
+    post:
+      summary: Регистрация пользователя
+      tags:
+        - Аутентификация
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserRegistration'
+      responses:
+        '201':
+          description: Пользователь успешно зарегистрирован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '400':
+          description: Неверные данные запроса
+
+  /auth/login:
+    post:
+      summary: Аутентификация пользователя
+      tags:
+        - Аутентификация
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserLogin'
+      responses:
+        '200':
+          description: Успешная аутентификация
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    example: eyJhbGciOiJIUzI1NiIsInR5cCI6...
+        '401':
+          description: Неверные учетные данные
+
+  /users/{userId}:
+    get:
+      summary: Получение профиля пользователя
+      tags:
+        - Пользователи
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          description: Идентификатор пользователя
+          schema:
+            type: string
+            format: uuid
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Профиль пользователя
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '404':
+          description: Пользователь не найден
+
+    put:
+      summary: Обновление профиля пользователя
+      tags:
+        - Пользователи
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          description: Идентификатор пользователя
+          schema:
+            type: string
+            format: uuid
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UpdateUserProfile'
+      responses:
+        '200':
+          description: Профиль обновлен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '400':
+          description: Неверные данные запроса
+        '404':
+          description: Пользователь не найден
+
+  /videos:
+    post:
+      summary: Загрузка видео
+      tags:
+        - Видео
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/VideoUpload'
+      responses:
+        '201':
+          description: Видео успешно загружено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Video'
+        '400':
+          description: Неверные данные или формат файла
+
+    get:
+      summary: Поиск видео
+      tags:
+        - Видео
+      parameters:
+        - name: query
+          in: query
+          required: true
+          description: Строка поиска по названию и описанию
+          schema:
+            type: string
+            example: "учебное видео"
+        - name: page
+          in: query
+          required: false
+          description: Номер страницы
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          description: Количество результатов на странице
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Результаты поиска
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VideoSearchResponse'
+        '400':
+          description: Неверные параметры запроса
+
+  /videos/{videoId}:
+    get:
+      summary: Получение информации о видео
+      tags:
+        - Видео
+      parameters:
+        - $ref: '#/components/parameters/VideoId'
+      responses:
+        '200':
+          description: Информация о видео
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Video'
+        '404':
+          description: Видео не найдено
+
+    put:
+      summary: Редактирование информации о видео
+      tags:
+        - Видео
+      parameters:
+        - $ref: '#/components/parameters/VideoId'
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                  example: Обновленный заголовок
+                description:
+                  type: string
+                  example: Обновленное описание
+      responses:
+        '200':
+          description: Видео обновлено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Video'
+        '400':
+          description: Неверные данные запроса
+        '404':
+          description: Видео не найдено
+
+    delete:
+      summary: Удаление видео
+      tags:
+        - Видео
+      parameters:
+        - $ref: '#/components/parameters/VideoId'
+      security:
+        - BearerAuth: []
+      responses:
+        '204':
+          description: Видео удалено
+        '404':
+          description: Видео не найдено
+
+  /videos/{videoId}/play:
+    post:
+      summary: Воспроизведение видео (увеличение счетчика просмотров)
+      tags:
+        - Видеоплеер
+      parameters:
+        - $ref: '#/components/parameters/VideoId'
+      responses:
+        '200':
+          description: Счетчик просмотров обновлен
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  views:
+                    type: integer
+                    example: 1025
+        '404':
+          description: Видео не найдено
+
+  /comments:
+    get:
+      summary: Получение комментариев к видео
+      tags:
+        - Комментарии
+      parameters:
+        - name: videoId
+          in: query
+          required: true
+          description: Идентификатор видео
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          required: false
+          description: Номер страницы
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          description: Количество комментариев на странице
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Список комментариев
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                    example: 100
+                  comments:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Comment'
+        '400':
+          description: Неверные параметры запроса
+        '404':
+          description: Видео не найдено
+
+    post:
+      summary: Добавление комментария к видео
+      tags:
+        - Комментарии
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - videoId
+                - content
+              properties:
+                videoId:
+                  type: string
+                  format: uuid
+                  example: "123e4567-e89b-12d3-a456-426614174001"
+                content:
+                  type: string
+                  minLength: 1
+                  example: Отличное видео!
+      responses:
+        '201':
+          description: Комментарий добавлен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comment'
+        '400':
+          description: Неверные данные запроса
+        '404':
+          description: Видео не найдено
+
+  /comments/{commentId}:
+    delete:
+      summary: Удаление комментария
+      tags:
+        - Комментарии
+      parameters:
+        - $ref: '#/components/parameters/CommentId'
+      security:
+        - BearerAuth: []
+      responses:
+        '204':
+          description: Комментарий удален
+        '404':
+          description: Комментарий не найден
+
+  /videos/{videoId}/like:
+    post:
+      summary: Поставить лайк или дизлайк видео
+      tags:
+        - Социальные функции
+      parameters:
+        - $ref: '#/components/parameters/VideoId'
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LikeDislike'
+      responses:
+        '200':
+          description: Статус лайка/дизлайка обновлен
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  likes:
+                    type: integer
+                    example: 101
+                  dislikes:
+                    type: integer
+                    example: 5
+        '400':
+          description: Неверные данные запроса
+        '404':
+          description: Видео не найдено
+
+tags:
+  - name: Аутентификация
+    description: Регистрация и аутентификация пользователей
+  - name: Пользователи
+    description: Управление профилями пользователей
+  - name: Видео
+    description: Загрузка, управление и поиск видео
+  - name: Видеоплеер
+    description: Функции воспроизведения видео
+  - name: Комментарии
+    description: Управление комментариями под видео
+  - name: Социальные функции
+    description: Лайки и дизлайки на видео
