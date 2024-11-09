@@ -366,7 +366,7 @@ paths:
         '404':
           description: Пользователь не найден
 
-  /users/{userId}/avater:
+  /users/{userId}/avatar:
     put:
       summary: Обновление фото профиля пользователя
       tags:
