@@ -3,9 +3,6 @@ info:
   title: Видеоплатформа API
   description: API для сервиса видеоплатформы с регистрацией, аутентификацией, загрузкой и управлением видео, оценками и видеоплеером.
   version: 1.0.0
-servers:
-  - url: TBD
-    description: Основной сервер API
 
 components:
   securitySchemes:
@@ -20,21 +17,21 @@ components:
       required:
         - email
         - password
-        - nickname
+        - username
       properties:
         email:
           type: string
           format: email
-          example: user@example.com
+          example: user@itmo.ru
         password:
           type: string
           format: password
           minLength: 6
           example: strongPassword123
-        nickname:
+        username:
           type: string
           minLength: 3
-          example: UserNickname
+          example: Username
 
     UserLogin:
       type: object
@@ -58,13 +55,12 @@ components:
           type: string
           format: uuid
           example: "123e4567-e89b-12d3-a456-426614174000"
-        email:
+        username:
           type: string
-          format: email
-          example: user@example.com
-        nickname:
+          example: UserUsername
+        role:
           type: string
-          example: UserNickname
+          example: user
         avatarUrl:
           type: string
           format: uri
@@ -73,17 +69,21 @@ components:
     UpdateUserProfile:
       type: object
       properties:
-        nickname:
+        username:
           type: string
           minLength: 3
-          example: NewNickname
-        avatar:
-          type: string
-          format: binary
+          example: NewUsername
         password:
           type: string
           format: password
           minLength: 6
+
+    UpdateUserAvatarRequest:
+      type: object
+      properties:
+        avatar:
+          type: string
+          format: binary
 
     VideoUpload:
       type: object
@@ -150,6 +150,16 @@ components:
           items:
             $ref: '#/components/schemas/Video'
 
+    UpdateVideoRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          example: Обновленный заголовок
+        description:
+          type: string
+          example: Обновленное описание
+
     Comment:
       type: object
       properties:
@@ -171,25 +181,48 @@ components:
           format: date-time
           example: "2024-04-27T10:05:00Z"
 
-    CreateComment:
+    CreateCommentRequest:
       type: object
       required:
+        - videoId
         - content
       properties:
+        videoId:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174001"
         content:
           type: string
           minLength: 1
           example: Отличное видео!
 
-    LikeDislike:
+    CommentSearchResponse:
       type: object
-      required:
-        - action
       properties:
-        action:
+        total:
+          type: integer
+          example: 100
+        comments:
+          type: array
+          items:
+            $ref: '#/components/schemas/Comment'
+
+    GetReactionsResponse:
+      type: object
+      properties:
+        likes:
+          type: integer
+          example: 100
+        dislikes:
+          type: integer
+          example: 5
+
+    ErrorResponse:
+      type: object
+      properties:
+        message:
           type: string
-          enum: [like, dislike]
-          example: like
+          example: Something went wrong
 
   parameters:
     VideoId:
@@ -234,6 +267,10 @@ paths:
                 $ref: '#/components/schemas/UserProfile'
         '400':
           description: Неверные данные запроса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /auth/login:
     post:
@@ -259,6 +296,10 @@ paths:
                     example: eyJhbGciOiJIUzI1NiIsInR5cCI6...
         '401':
           description: Неверные учетные данные
+
+  #
+  # Профиль пользователя
+  #
 
   /users/{userId}:
     get:
@@ -302,7 +343,7 @@ paths:
       requestBody:
         required: true
         content:
-          multipart/form-data:
+          application/json:
             schema:
               $ref: '#/components/schemas/UpdateUserProfile'
       responses:
@@ -314,8 +355,61 @@ paths:
                 $ref: '#/components/schemas/UserProfile'
         '400':
           description: Неверные данные запроса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Не авторизован
+        '403':
+          description: Недостаточно прав
         '404':
           description: Пользователь не найден
+
+  /users/{userId}/avater:
+    put:
+      summary: Обновление фото профиля пользователя
+      tags:
+        - Пользователи
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          description: Идентификатор пользователя
+          schema:
+            type: string
+            format: uuid
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UpdateUserAvatarRequest'
+      responses:
+        '200':
+          description: Профиль обновлен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '400':
+          description: Неверные данные запроса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Не авторизован
+        '403':
+          description: Недостаточно прав
+        '404':
+          description: Пользователь не найден
+
+  #
+  # Видео
+  #
 
   /videos:
     post:
@@ -338,7 +432,16 @@ paths:
               schema:
                 $ref: '#/components/schemas/Video'
         '400':
-          description: Неверные данные или формат файла
+          description: Неверные данные запроса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Не авторизован
+        '403':
+          description: Недостаточно прав
+
 
     get:
       summary: Поиск видео
@@ -374,7 +477,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/VideoSearchResponse'
         '400':
-          description: Неверные параметры запроса
+          description: Неверные данные запроса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /videos/{videoId}:
     get:
@@ -406,14 +513,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                title:
-                  type: string
-                  example: Обновленный заголовок
-                description:
-                  type: string
-                  example: Обновленное описание
+              $ref: '#/components/schemas/UpdateVideoRequest'
       responses:
         '200':
           description: Видео обновлено
@@ -423,6 +523,14 @@ paths:
                 $ref: '#/components/schemas/Video'
         '400':
           description: Неверные данные запроса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Не авторизован
+        '403':
+          description: Недостаточно прав
         '404':
           description: Видео не найдено
 
@@ -437,29 +545,16 @@ paths:
       responses:
         '204':
           description: Видео удалено
+        '401':
+          description: Не авторизован
+        '403':
+          description: Недостаточно прав
         '404':
           description: Видео не найдено
 
-  /videos/{videoId}/play:
-    post:
-      summary: Воспроизведение видео (увеличение счетчика просмотров)
-      tags:
-        - Видеоплеер
-      parameters:
-        - $ref: '#/components/parameters/VideoId'
-      responses:
-        '200':
-          description: Счетчик просмотров обновлен
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  views:
-                    type: integer
-                    example: 1025
-        '404':
-          description: Видео не найдено
+  #
+  # Комментарии к видео
+  #
 
   /comments:
     get:
@@ -494,17 +589,13 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  total:
-                    type: integer
-                    example: 100
-                  comments:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/Comment'
+                $ref: '#/components/schemas/CommentSearchResponse'
         '400':
-          description: Неверные параметры запроса
+          description: Неверные данные запроса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: Видео не найдено
 
@@ -519,19 +610,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required:
-                - videoId
-                - content
-              properties:
-                videoId:
-                  type: string
-                  format: uuid
-                  example: "123e4567-e89b-12d3-a456-426614174001"
-                content:
-                  type: string
-                  minLength: 1
-                  example: Отличное видео!
+              $ref: '#/components/schemas/CreateCommentRequest'
       responses:
         '201':
           description: Комментарий добавлен
@@ -541,6 +620,12 @@ paths:
                 $ref: '#/components/schemas/Comment'
         '400':
           description: Неверные данные запроса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Не авторизован
         '404':
           description: Видео не найдено
 
@@ -556,40 +641,65 @@ paths:
       responses:
         '204':
           description: Комментарий удален
+        '401':
+          description: Не авторизован
+        '403':
+          description: Недостаточно прав
         '404':
           description: Комментарий не найден
 
+  #
+  # Реакции на видео
+  #
+
+  /videos/{videoId}/reactions:
+    get:
+      summary: Получить реакции для видео
+      tags:
+        - Реакции
+      parameters:
+        - $ref: '#/components/parameters/VideoId'
+      responses:
+        '200':
+          description: Список реакций
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetReactionsResponse'
+        '404':
+          description: Видео не найдено
+
   /videos/{videoId}/like:
     post:
-      summary: Поставить лайк или дизлайк видео
+      summary: Поставить лайк на видео
       tags:
-        - Лайки и дизлайки
+        - Реакции
       parameters:
         - $ref: '#/components/parameters/VideoId'
       security:
         - BearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/LikeDislike'
       responses:
         '200':
-          description: Статус лайка/дизлайка обновлен
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  likes:
-                    type: integer
-                    example: 101
-                  dislikes:
-                    type: integer
-                    example: 5
-        '400':
-          description: Неверные данные запроса
+          description: Реакция поставлена
+        '401':
+          description: Не авторизован
+        '404':
+          description: Видео не найдено
+
+  /videos/{videoId}/dislike:
+    post:
+      summary: Поставить дизлайк на видео
+      tags:
+        - Реакции
+      parameters:
+        - $ref: '#/components/parameters/VideoId'
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Реакция поставлена
+        '401':
+          description: Не авторизован
         '404':
           description: Видео не найдено
 
@@ -600,9 +710,7 @@ tags:
     description: Управление профилями пользователей
   - name: Видео
     description: Загрузка, управление и поиск видео
-  - name: Видеоплеер
-    description: Функции воспроизведения видео
   - name: Комментарии
     description: Управление комментариями под видео
-  - name: Лайки и дизлайки
-    description: Лайки и дизлайки на видео
+  - name: Реакции
+    description: Реакции на видео
